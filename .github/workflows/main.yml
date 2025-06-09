@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4  # Cập nhật lên v4 cho consistency
 
       - name: Build Kernel
         uses: dabao1955/kernel_build_action@main
@@ -21,7 +21,7 @@ jobs:
           aosp-gcc: true
           aosp-clang: true
           android-version: 12
-          aosp-clang-version: r487747  # Cập nhật phiên bản Clang mới hơn nếu cần
+          aosp-clang-version: r487747
 
       - name: Vá SukiSU Ultra
         run: |
@@ -50,7 +50,8 @@ jobs:
           # Thêm các file khác (như modules) nếu cần
 
       - name: Tải artifact lên
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4  # Cập nhật lên v4
         with:
           name: kernel-munch-sukisu
           path: kernel/kernel-munch-sukisu.zip
+          retention-days: 5  # Lưu artifact trong 5 ngày
