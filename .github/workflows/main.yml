@@ -1,0 +1,71 @@
+name: Build Kernel with SukiSU Ultra for Redmi K40s (munch)
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Cài đặt môi trường
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y git make bc bison flex libssl-dev libncurses-dev kmod zip curl
+
+    - name: Cài đặt Clang
+      run: |
+        wget https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/master/clang-r487747.tar.gz
+        mkdir -p clang
+        tar -xzf clang-r487747.tar.gz -C clang
+        export PATH=$PWD/clang/bin:$PATH
+
+    - name: Cài đặt GCC (dự phòng)
+      run: |
+        sudo apt-get install -y gcc-aarch64-linux-gnu
+
+    - name: Clone kernel source
+      run: |
+        git clone --depth 1 https://github.com/ldt2003/kernel-lts.git kernel
+        cd kernel
+
+    - name: Vá SukiSU Ultra
+      run: |
+        cd kernel
+        git clone https://github.com/SukiSU-Ultra/SukiSU-Ultra.git suksisu
+        cd suksisu
+        ./patch.sh ../
+        cd ../
+        # Lưu ý: Script patch.sh sẽ tự động áp dụng các vá cần thiết cho kernel
+
+    - name: Cấu hình kernel
+      run: |
+        cd kernel
+        make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC=clang munch_defconfig
+        # Thay 'munch_defconfig' bằng file defconfig phù hợp nếu khác
+
+    - name: Xây dựng kernel
+      run: |
+        cd kernel
+        make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC=clang -j$(nproc)
+
+    - name: Đóng gói kernel
+      run: |
+        cd kernel
+        zip -r kernel-munch-sukisu.zip arch/arm64/boot/Image.gz-dtb
+        # Thêm các file khác (như modules) nếu cần
+
+    - name: Tải artifact lên
+      uses: actions/upload-artifact@v3
+      with:
+        name: kernel-munch-sukisu
+        path: kernel/kernel-munch-sukisu.zip
