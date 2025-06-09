@@ -1,71 +1,56 @@
 name: Build Kernel with SukiSU Ultra for Redmi K40s (munch)
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
   workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-
+  build-kernel:
+    name: Build Kernel for munch
+    runs-on: ubuntu-22.04
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-    - name: Cài đặt môi trường
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y git make bc bison flex libssl-dev libncurses-dev kmod zip curl
+      - name: Build Kernel
+        uses: dabao1955/kernel_build_action@main
+        with:
+          kernel-url: https://github.com/ldt2003/kernel-lts
+          kernel-branch: main
+          config: munch_defconfig
+          arch: arm64
+          aosp-gcc: true
+          aosp-clang: true
+          android-version: 12
+          aosp-clang-version: r487747  # Cập nhật phiên bản Clang mới hơn nếu cần
 
-    - name: Cài đặt Clang
-      run: |
-        wget https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/master/clang-r487747.tar.gz
-        mkdir -p clang
-        tar -xzf clang-r487747.tar.gz -C clang
-        export PATH=$PWD/clang/bin:$PATH
+      - name: Vá SukiSU Ultra
+        run: |
+          cd kernel
+          git clone https://github.com/SukiSU-Ultra/SukiSU-Ultra.git suksisu
+          cd suksisu
+          ./patch.sh ../
+          cd ../
 
-    - name: Cài đặt GCC (dự phòng)
-      run: |
-        sudo apt-get install -y gcc-aarch64-linux-gnu
+      - name: Build lại kernel sau khi vá
+        uses: dabao1955/kernel_build_action@main
+        with:
+          kernel-url: .
+          kernel-branch: main
+          config: munch_defconfig
+          arch: arm64
+          aosp-gcc: true
+          aosp-clang: true
+          android-version: 12
+          aosp-clang-version: r487747
 
-    - name: Clone kernel source
-      run: |
-        git clone --depth 1 https://github.com/ldt2003/kernel-lts.git kernel
-        cd kernel
+      - name: Đóng gói kernel
+        run: |
+          cd kernel
+          zip -r kernel-munch-sukisu.zip arch/arm64/boot/Image.gz-dtb
+          # Thêm các file khác (như modules) nếu cần
 
-    - name: Vá SukiSU Ultra
-      run: |
-        cd kernel
-        git clone https://github.com/SukiSU-Ultra/SukiSU-Ultra.git suksisu
-        cd suksisu
-        ./patch.sh ../
-        cd ../
-        # Lưu ý: Script patch.sh sẽ tự động áp dụng các vá cần thiết cho kernel
-
-    - name: Cấu hình kernel
-      run: |
-        cd kernel
-        make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC=clang munch_defconfig
-        # Thay 'munch_defconfig' bằng file defconfig phù hợp nếu khác
-
-    - name: Xây dựng kernel
-      run: |
-        cd kernel
-        make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC=clang -j$(nproc)
-
-    - name: Đóng gói kernel
-      run: |
-        cd kernel
-        zip -r kernel-munch-sukisu.zip arch/arm64/boot/Image.gz-dtb
-        # Thêm các file khác (như modules) nếu cần
-
-    - name: Tải artifact lên
-      uses: actions/upload-artifact@v3
-      with:
-        name: kernel-munch-sukisu
-        path: kernel/kernel-munch-sukisu.zip
+      - name: Tải artifact lên
+        uses: actions/upload-artifact@v3
+        with:
+          name: kernel-munch-sukisu
+          path: kernel/kernel-munch-sukisu.zip
